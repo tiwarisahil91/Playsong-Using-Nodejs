@@ -1,0 +1,247 @@
+<html lang="en">
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+   <title>SpeakMusic</title>
+   <!--meta name="viewport" content="width=device-width, initial-scale=1"-->
+   <!--link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"-->
+   <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+   <!--script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script-->
+   <script type="text/javascript">
+      var accessToken = "92cd1c83b5944cc585df5a9515c4c8cf",
+      baseUrl = "https://api.api.ai/v1/",
+      $speechInput,
+      $recBtn,
+      recognition,
+      messageRecording = "Recording...",
+      messageCouldntHear = "I couldn't hear you, could you say that again?",
+      messageInternalError = "Oh no, there has been an internal server error",
+      messageSorry = "I'm sorry, I don't have the answer to that yet.";
+    $(document).ready(function() {
+      $speechInput = $("#speech");
+      $recBtn = $("#rec");
+      $speechInput.keypress(function(event) {
+        if (event.which == 13) {
+          event.preventDefault();
+          send();
+        }
+      });
+      $recBtn.on("click", function(event) {
+        switchRecognition();
+      });
+      $(".debug__btn").on("click", function() {
+        $(this).next().toggleClass("is-active");
+        return false;
+      });
+    });
+    function startRecognition() {
+      recognition = new webkitSpeechRecognition();
+      recognition.continuous = false;
+          recognition.interimResults = false;
+      recognition.onstart = function(event) {
+        respond(messageRecording);
+        updateRec();
+      };
+      recognition.onresult = function(event) {
+        recognition.onend = null;
+        
+        var text = "";
+          for (var i = event.resultIndex; i < event.results.length; ++i) {
+            text += event.results[i][0].transcript;
+          }
+          setInput(text);
+        stopRecognition();
+      };
+      recognition.onend = function() {
+        respond(messageCouldntHear);
+        stopRecognition();
+      };
+      recognition.lang = "en-US";
+      recognition.start();
+    }
+  
+    function stopRecognition() {
+      if (recognition) {
+        recognition.stop();
+        recognition = null;
+      }
+      updateRec();
+    }
+    function switchRecognition() {
+      if (recognition) {
+        stopRecognition();
+      } else {
+        startRecognition();
+      }
+    }
+    function setInput(text) {
+      $speechInput.val(text);
+      send();
+    }
+    function updateRec() {
+      $recBtn.text(recognition ? "Stop" : "Speak");
+    }
+    function send() {
+      var text = $speechInput.val();
+      $.ajax({
+        type: "POST",
+        url: baseUrl + "query",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        headers: {
+          "Authorization": "Bearer " + accessToken
+        },
+        data: JSON.stringify({query: text, lang: "en", sessionId: "music_session"}),
+        success: function(data) {
+          prepareResponse(data);
+        },
+        error: function() {
+          respond(messageInternalError);
+        }
+      });
+    }
+    function prepareResponse(val) {
+      var debugJSON = JSON.stringify(val, undefined, 2),
+        spokenResponse = val.result.speech;
+		var dataJSON=val.result.parameters;
+		//var data=$.parseJSON(dataJSON);
+		console.log(dataJSON);
+		$.each(dataJSON,function(k,v){
+		if(v.length!==0)
+		{
+		   if(k=="artist"||k=="albums"||k=="track"||k=="genre"||(k==="stop" && v!=null))
+		   {
+		      var filled_keyvalue=k+":"+v;
+			  console.log(filled_keyvalue);
+		      document.getElementById("json_filledvalue").value= filled_keyvalue;
+			  //alert(document.getElementById("json_filledvalue").value);
+			  $("#form1").submit();
+		   }
+		   else
+		   {
+		      //alert(document.getElementById("json_filledvalue").value);
+		      document.getElementById("json_filledvalue").value= "";
+		   }
+		}});
+      respond(spokenResponse);
+      debugRespond(debugJSON);
+    }
+    function debugRespond(val) {
+      $("#response").text(val);
+    }
+    function respond(val) {
+      if (val == "") {
+        val = messageSorry;
+      }
+      if (val !== messageRecording) {
+        var message = new SpeechSynthesisUtterance();
+		var voices= window.speechSynthesis.getVoices();
+		message.voice= voices.filter(function(voice) { return voice.name == 'Whisper'; })[0];
+        message.voiceURI = "Google US English";
+        message.text = val;
+        message.lang = "en-US";
+        window.speechSynthesis.speak(message);
+      }
+      $("#spokenResponse").addClass("is-active").find(".spoken-response_text").html(val);
+    }
+  </script>
+  <style type="text/css">
+    #navBarSearchForm input[type=text]{width:430px;}
+	html {
+      box-sizing: border-box;
+    }
+    *, *:before, *:after {
+      box-sizing: inherit;
+    }
+    body {
+      background-color: #7c0d30;
+      font-family: "Titillium Web", Arial, sans-serif;
+      font-size: 20px;
+      margin: 0;
+	  background-image:url('/music_background.gif')no-repeat;
+    }
+    .container {
+      position: fixed;
+	  left:37%;
+	  top:25px;
+	  -webkit-transform: translate(-10%, -10%);
+	  max-width:100%;
+	  max-height:100%;
+    }
+	.speech_container
+	{
+	  position:fixed;
+	  padding:0 20px;
+	} 
+    input {
+      background-color: #b25573;
+      border: 1px solid #e52464;
+      color: #c66d91;
+      font-family: "Titillium Web";
+      font-size: 20px;
+      line-height: 43px;
+      padding: 0 0.75em;
+      width: 500px;
+      -webkit-transition: all 0.35s ease-in;
+    }
+    textarea {
+      background-color: #751224;
+      border: 1px solid #a50e55;
+      color: #ba1652;
+      padding: 0.5em;
+      width: 100%;
+      -webkit-transition: all 0.35s ease-in;
+    }
+    input:active, input:focus, textarea:active, textarea:focus {
+      outline: 1px solid #d30845;
+    }
+    .btn {
+      background-color: #bc4d54;
+      border: 1px solid #b71641;
+      color: white;
+      cursor: pointer;
+      display: inline-block;
+      font-family: "Titillium Web";
+      font-size: 20px;
+      line-height: 43px;
+      padding: 0 0.75em;
+      text-align: center;
+      text-transform: uppercase;
+      -webkit-transition: all 0.35s ease-in;
+    }
+    .btn:hover {
+      background-color: #6d3542;
+      color: #b71236;
+    }
+    .spoken-response {
+      max-height: 0;
+      overflow: hidden;
+      -webkit-transition: all 0.35s ease-in;
+    }
+    .spoken-response.is-active {
+      max-height: 180px;
+	  max-width: 525px;
+    }
+    .spoken-response_text {
+      background-color: #5b0a21;
+      color: #8e3041;
+      padding: 1em;
+    }
+  </style>
+</head>
+<body>
+<div id="row" style="position:fixed">  
+  <div class="container">
+    <div id="speech_container">
+    <input id="speech" type="text" placeholder="Start with hi">
+    <button id="rec" class="btn">Speak</button>
+	</div>
+    <div id="spokenResponse" class="spoken-response">
+      <div class="spoken-response_text"></div>
+    </div>
+	<form id="form1" method="post">
+	<input id= "json_filledvalue" style="visibility:hidden" name="music_query" type="text">
+	</form>
+  </div>  
+</div>  
+</body>
+</html>  
